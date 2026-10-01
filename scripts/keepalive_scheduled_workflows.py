@@ -1,8 +1,11 @@
 """
-Re-enable GitHub Actions workflows across every repository a GitHub App is installed on.
+Re-enable GitHub Actions workflows across every repository a personal access token (classic) can push to.
 
 GitHub disables scheduled workflows in public repositories after 60 days without repository activity.
 Calling the 'enable' endpoint on a workflow resets that timer.
+
+Covered repositories are those owned by the token's user or by any organization the user belongs to.
+Archived repositories and repositories the user cannot push to are skipped.
 
 Only workflows that are currently 'active' or 'disabled_inactivity' are touched.
 Workflows disabled manually, or disabled because the repository is a fork, are left alone.
@@ -13,23 +16,20 @@ import json
 import os
 import re
 import sys
-import time
 import urllib.error
 import urllib.request
-
-import jwt
 
 API_URL = "https://api.github.com"
 ENABLEABLE_STATES = ("active", "disabled_inactivity")
 
 
-def _request(*, method: str, url: str, token: str, auth_scheme: str = "token") -> tuple[object, dict[str, str]]:
+def _request(*, method: str, url: str, token: str) -> tuple[object, dict[str, str]]:
     request = urllib.request.Request(
         url=url,
         method=method,
         headers={
             "Accept": "application/vnd.github+json",
-            "Authorization": f"{auth_scheme} {token}",
+            "Authorization": f"token {token}",
             "X-GitHub-Api-Version": "2022-11-28",
             "User-Agent": "spectus-keepalive",
         },
@@ -42,11 +42,11 @@ def _request(*, method: str, url: str, token: str, auth_scheme: str = "token") -
     return payload, headers
 
 
-def _paginate(*, url: str, token: str, key: str | None = None, auth_scheme: str = "token") -> list[dict]:
+def _paginate(*, url: str, token: str, key: str | None = None) -> list[dict]:
     items = []
     next_url: str | None = url
     while next_url is not None:
-        payload, headers = _request(method="GET", url=next_url, token=token, auth_scheme=auth_scheme)
+        payload, headers = _request(method="GET", url=next_url, token=token)
         page = payload[key] if key is not None else payload
         items.extend(page)
 
@@ -56,85 +56,75 @@ def _paginate(*, url: str, token: str, key: str | None = None, auth_scheme: str 
     return items
 
 
-def _create_app_jwt(*, app_id: str, private_key: str) -> str:
-    now = int(time.time())
-    payload = {"iat": now - 60, "exp": now + 9 * 60, "iss": app_id}
-    app_jwt = jwt.encode(payload=payload, key=private_key, algorithm="RS256")
-    return app_jwt
+def _is_sso_error(exception: urllib.error.HTTPError, /) -> bool:
+    is_sso_error = exception.code == 403 and exception.headers.get("X-GitHub-SSO") is not None
+    return is_sso_error
 
 
-def keepalive(*, app_id: str, private_key: str, dry_run: bool) -> list[str]:
+def keepalive(*, token: str, dry_run: bool) -> list[str]:
     """
-    Enable every eligible workflow in every repository the App can access.
+    Enable every eligible workflow in every repository the token can push to.
 
     Returns
     -------
     list of str
         Human-readable descriptions of any failures.
     """
-    app_jwt = _create_app_jwt(app_id=app_id, private_key=private_key)
-    installations = _paginate(url=f"{API_URL}/app/installations?per_page=100", token=app_jwt, auth_scheme="Bearer")
+    repositories = _paginate(
+        url=f"{API_URL}/user/repos?affiliation=owner,organization_member&per_page=100", token=token
+    )
+    repositories = [
+        repository
+        for repository in repositories
+        if not repository["archived"] and repository.get("permissions", {}).get("push", False)
+    ]
+    print(f"Checking {len(repositories)} repositories")
 
     summary_rows = []
     failures = []
-    for installation in installations:
-        account = installation["account"]["login"]
-        try:
-            token_payload, _ = _request(
-                method="POST",
-                url=f"{API_URL}/app/installations/{installation['id']}/access_tokens",
-                token=app_jwt,
-                auth_scheme="Bearer",
-            )
-            installation_token = token_payload["token"]
+    sso_blocked_owners: set[str] = set()
+    for repository in repositories:
+        full_name = repository["full_name"]
+        owner = repository["owner"]["login"]
+        if owner in sso_blocked_owners:
+            continue
 
-            repositories = _paginate(
-                url=f"{API_URL}/installation/repositories?per_page=100", token=installation_token, key="repositories"
+        try:
+            workflows = _paginate(
+                url=f"{API_URL}/repos/{full_name}/actions/workflows?per_page=100", token=token, key="workflows"
             )
         except urllib.error.HTTPError as exception:
-            failures.append(f"{account}: could not access installation ({exception.code})")
-            continue
-        repositories = [repository for repository in repositories if not repository["archived"]]
-        print(f"::group::{account} ({len(repositories)} repositories)")
-
-        for repository in repositories:
-            full_name = repository["full_name"]
-            try:
-                workflows = _paginate(
-                    url=f"{API_URL}/repos/{full_name}/actions/workflows?per_page=100",
-                    token=installation_token,
-                    key="workflows",
-                )
-            except urllib.error.HTTPError as exception:
+            if _is_sso_error(exception):
+                sso_blocked_owners.add(owner)
+                failures.append(f"{owner}: token is not authorized for this organization's SAML SSO")
+            else:
                 failures.append(f"{full_name}: could not list workflows ({exception.code})")
+            continue
+
+        for workflow in workflows:
+            # Dynamic workflows (Dependabot, CodeQL, Pages) cannot be enabled through the API
+            if not workflow["path"].startswith(".github/workflows/"):
+                continue
+            if workflow["state"] not in ENABLEABLE_STATES:
                 continue
 
-            for workflow in workflows:
-                # Dynamic workflows (Dependabot, CodeQL, Pages) cannot be enabled through the API
-                if not workflow["path"].startswith(".github/workflows/"):
+            label = f"{full_name}/{workflow['path'].removeprefix('.github/workflows/')}"
+            if dry_run:
+                print(f"[dry run] would enable {label} ({workflow['state']})")
+            else:
+                try:
+                    _request(
+                        method="PUT",
+                        url=f"{API_URL}/repos/{full_name}/actions/workflows/{workflow['id']}/enable",
+                        token=token,
+                    )
+                except urllib.error.HTTPError as exception:
+                    failures.append(f"{label}: could not enable ({exception.code})")
                     continue
-                if workflow["state"] not in ENABLEABLE_STATES:
-                    continue
+                print(f"enabled {label} ({workflow['state']})")
 
-                label = f"{full_name}/{workflow['path'].removeprefix('.github/workflows/')}"
-                if dry_run:
-                    print(f"[dry run] would enable {label} ({workflow['state']})")
-                else:
-                    try:
-                        _request(
-                            method="PUT",
-                            url=f"{API_URL}/repos/{full_name}/actions/workflows/{workflow['id']}/enable",
-                            token=installation_token,
-                        )
-                    except urllib.error.HTTPError as exception:
-                        failures.append(f"{label}: could not enable ({exception.code})")
-                        continue
-                    print(f"enabled {label} ({workflow['state']})")
-
-                if workflow["state"] == "disabled_inactivity":
-                    summary_rows.append(f"| `{full_name}` | `{workflow['path']}` |")
-
-        print("::endgroup::")
+            if workflow["state"] == "disabled_inactivity":
+                summary_rows.append(f"| `{full_name}` | `{workflow['path']}` |")
 
     _write_step_summary(summary_rows=summary_rows, failures=failures, dry_run=dry_run)
     return failures
@@ -165,11 +155,7 @@ def main() -> None:
     parser.add_argument("--dry", action="store_true", help="List the workflows that would be enabled.")
     arguments = parser.parse_args()
 
-    failures = keepalive(
-        app_id=os.environ["APP_ID"],
-        private_key=os.environ["APP_PRIVATE_KEY"],
-        dry_run=arguments.dry,
-    )
+    failures = keepalive(token=os.environ["KEEPALIVE_TOKEN"], dry_run=arguments.dry)
     for failure in failures:
         print(f"::error::{failure}")
     if failures:

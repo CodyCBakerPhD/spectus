@@ -4,30 +4,30 @@ GitHub disables scheduled workflows in public repositories after 60 days without
 When that happens, daily tests and checks stop running without any notification.
 
 The `Keep scheduled workflows alive` workflow runs every Monday.
-It re-enables workflows in every repository that the keepalive GitHub App is installed on.
+It uses a personal access token (classic) to re-enable workflows across repositories.
 Enabling a workflow through the API resets the inactivity timer.
+
+It covers every repository owned by the token's user or by any organization that user belongs to.
+Repositories the user cannot push to are skipped.
+Archived repositories are skipped.
 
 It only touches workflows that are `active` or `disabled_inactivity`.
 Workflows that were disabled manually are left alone.
 So are workflows disabled because the repository is a fork.
-Archived repositories are skipped.
 
 Each run writes a summary listing any workflows that had been disabled for inactivity.
-The run fails if any installation, repository, or workflow could not be reached.
+The run fails if any organization, repository, or workflow could not be reached.
 
 ## Setup
 
-1. Create a GitHub App (Settings > Developer settings > GitHub Apps > New GitHub App).
-   - Disable the webhook.
-   - Under **Repository permissions**, set **Actions** to **Read and write**.
-   - Allow it to be installed on **Any account** so it can be installed on every organization.
-2. Generate a private key for the App.
-3. Install the App on every organization and account to cover, with access to **All repositories**.
-   Make sure this repository is included so the keepalive workflow keeps itself alive.
-4. Add two repository secrets here.
-   - `KEEPALIVE_APP_ID` is the App ID.
-   - `KEEPALIVE_APP_PRIVATE_KEY` is the full contents of the private key file.
-5. Run the workflow manually with **dry** checked to preview what it would enable.
+1. Create a personal access token (classic) at Settings > Developer settings > Personal access tokens > Tokens (classic).
+   - Select the `repo` scope.
+   - Choose an expiration. If it expires, the weekly run fails and GitHub emails you.
+2. For any organization that enforces SAML single sign-on, click **Configure SSO** next to the token and authorize it.
+   Organizations that are not authorized are listed as failures in each run.
+3. Add a repository secret here named `KEEPALIVE_TOKEN` containing the token.
+4. Run the workflow manually with **dry** checked to preview what it would enable.
    Then run it once without **dry** to re-enable anything already disabled.
 
-To cover a new organization later, install the App there. No code changes are needed.
+New organizations are covered automatically once the token's user joins them.
+Organizations with SAML single sign-on also need the token authorized as in step 2.
