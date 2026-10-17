@@ -1,0 +1,48 @@
+[tool.black]
+line-length = 120
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.toml
+  |\.yml
+  |\.txt
+  |\.sh
+  |\.git
+  |\.ini
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Docstring style: prefer the D213 / D211 conventions
+    "D203",
+    "D212",
+    # Scripts deliberately use `print` instead of logging
+    "T201",
+    # Common HTTP status codes (200, 403, ...) and other small integer
+    # literals are clearer inline than as named module-level constants
+    "PLR2004",
+    # Long, descriptive messages constructed at the raise site are preferred
+    # over per-call-site exception subclasses for one-off internal errors
+    "TRY003",
+    # Fine to use Unicode characters
+    "RUF003",
+    # `scripts/` is deliberately not a Python package
+    "INP001",
+]
+fixable = ["ALL"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["scripts"]
