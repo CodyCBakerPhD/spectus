@@ -14,7 +14,9 @@ export default defineConfig({
         baseURL: "http://localhost:5173",
         trace: "on-first-retry",
         launchOptions: {
-            args: ["--disable-gpu"],
+            // Without hinting, as text is measured in Claude Code cloud sessions; GitHub's runners otherwise hint
+            // fully, which rounds glyph widths to whole pixels and moves whatever Plotly lays out around its labels
+            args: ["--disable-gpu", "--font-render-hinting=none"],
         },
     },
     // One project only: the viewports each snapshot is taken at are set per
