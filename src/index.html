@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Spectus · Workflow Runs</title>
+
+    <link rel="icon" href="./assets/spectus-logo.svg" type="image/svg+xml">
+
+    <!-- Anti-FOUC: apply the saved theme and suppress transitions before the
+         stylesheet is parsed so the first paint already uses the correct
+         colors and no CSS animations play during initial state setup.
+         NOTE: the defaulting logic (anything other than 'light' → dark) must
+         stay in sync with init_theme() in main.ts. -->
+    <script>
+      try {
+        const t = localStorage.getItem('theme');
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+      } catch {}
+      document.documentElement.classList.add('preload');
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+
+    <script type="module" src="./main.ts"></script>
+</head>
+<body>
+    <header class="site-header">
+        <a href="https://github.com/con/spectus" class="site-brand" target="_blank" rel="noopener">
+            <img src="./assets/spectus-logo.svg" alt="" class="site-logo">
+            Spectus
+        </a>
+        <span class="site-title">Workflow Runs</span>
+        <div class="site-header-spacer"></div>
+        <button id="theme_toggle_btn" class="theme-toggle-btn" aria-label="Switch to light mode" title="Switch to light mode"></button>
+        <a id="data_link" href="https://github.com/con/spectus/tree/data" class="site-github-link site-data-link" target="_blank" rel="noopener" aria-label="Source data on GitHub" title="Source data on GitHub">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                <circle cx="14.6" cy="14.6" r="5.4" fill="var(--color-header)"/>
+                <g fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round">
+                    <ellipse cx="14.6" cy="12.6" rx="2.9" ry="1.05"/>
+                    <path d="M11.7 12.6v4c0 .58 1.3 1.05 2.9 1.05s2.9-.47 2.9-1.05v-4"/>
+                    <path d="M11.7 14.6c0 .58 1.3 1.05 2.9 1.05s2.9-.47 2.9-1.05"/>
+                </g>
+            </svg>
+        </a>
+        <a id="source_link" href="https://github.com/con/spectus" class="site-github-link" target="_blank" rel="noopener" aria-label="Source code on GitHub" title="Source code on GitHub">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+    </header>
+    <div class="page-content">
+    <div class="ControllerContainer">
+        <div class="SubControllerContainer">
+            <label for="repository_selector">Repository:</label>
+            <select id="repository_selector">
+                <option value="all">All repositories</option>
+            </select>
+        </div>
+        <div class="SubControllerContainer">
+            <span class="radio-label">Period:</span>
+            <div class="radio-toggle">
+                <input type="radio" id="period_7" name="period" value="7" />
+                <label for="period_7">7 days</label>
+                <input type="radio" id="period_30" name="period" value="30" checked />
+                <label for="period_30">30 days</label>
+                <input type="radio" id="period_90" name="period" value="90" />
+                <label for="period_90">90 days</label>
+                <input type="radio" id="period_365" name="period" value="365" />
+                <label for="period_365">1 year</label>
+            </div>
+        </div>
+        <div class="separator"></div>
+        <div class="settings-wrapper">
+            <button class="settings-btn" id="settings_btn" aria-label="Open settings" aria-expanded="false" title="Settings">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.07-2.07a7.07 7.07 0 0 0 .07-.93 7.07 7.07 0 0 0-.07-.93l2-1.56a.48.48 0 0 0 .11-.61l-1.9-3.28a.48.48 0 0 0-.58-.21l-2.36.95a6.93 6.93 0 0 0-1.6-.93l-.36-2.51A.47.47 0 0 0 12 1H8a.47.47 0 0 0-.47.41l-.36 2.51a6.93 6.93 0 0 0-1.6.93L3.21 3.9a.47.47 0 0 0-.58.21L.73 7.38a.47.47 0 0 0 .11.61l2 1.56A7.2 7.2 0 0 0 2.77 10a7.2 7.2 0 0 0 .07.93l-2 1.56a.48.48 0 0 0-.11.61l1.9 3.28a.48.48 0 0 0 .58.21l2.36-.95c.5.35 1.03.64 1.6.93l.36 2.51c.06.24.27.41.52.41h3.8c.25 0 .46-.17.52-.41l.36-2.51a6.93 6.93 0 0 0 1.6-.93l2.36.95c.22.08.47 0 .58-.21l1.9-3.28a.47.47 0 0 0-.11-.61l-2-1.56z"/>
+                </svg>
+            </button>
+            <div class="settings-panel" id="settings_panel" aria-hidden="true">
+                <div class="settings-panel-title">Settings</div>
+                <div class="SubControllerContainer">
+                    <label for="event_filter">Event</label>
+                    <span class="info-icon" data-tooltip="Only count runs triggered by this event" tabindex="0" role="img" aria-label="Event: Only count runs triggered by this event">i</span>
+                    <select id="event_filter">
+                        <option value="all">All events</option>
+                    </select>
+                </div>
+                <div class="SubControllerContainer">
+                    <label for="log_scale">Log scale</label>
+                    <span class="info-icon" data-tooltip="Applies to the durations plot" tabindex="0" role="img" aria-label="Log scale: Applies to the durations plot">i</span>
+                    <input type="checkbox" id="log_scale" />
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="totals"></div>
+    <p id="data_status" class="data-status" role="status"></p>
+
+    <div class="ControllerContainer PlotViewControls" id="over_time">
+        <a href="#over_time" class="section-anchor" aria-label="Link to this section">#</a>
+        <div class="SubControllerContainer">
+            <span class="radio-label">View:</span>
+            <div class="radio-toggle">
+                <input type="radio" id="over_time_view_plot" name="over_time_view" value="plot" checked />
+                <label for="over_time_view_plot">Plot</label>
+                <input type="radio" id="over_time_view_table" name="over_time_view" value="table" />
+                <label for="over_time_view_table">Table</label>
+            </div>
+        </div>
+        <div class="SubControllerContainer">
+            <span class="radio-label">Aggregate:</span>
+            <div class="radio-toggle">
+                <input type="radio" id="aggregation_daily" name="aggregation" value="daily" checked />
+                <label for="aggregation_daily">Daily</label>
+                <input type="radio" id="aggregation_weekly" name="aggregation" value="weekly" />
+                <label for="aggregation_weekly">Weekly</label>
+                <input type="radio" id="aggregation_monthly" name="aggregation" value="monthly" />
+                <label for="aggregation_monthly">Monthly</label>
+            </div>
+        </div>
+    </div>
+    <div class="view-section">
+        <div id="over_time_plot" class="plot"></div>
+        <div id="over_time_table" class="plot-table" style="display:none;"></div>
+    </div>
+
+    <div class="ControllerContainer PlotViewControls" id="status">
+        <a href="#status" class="section-anchor" aria-label="Link to this section">#</a>
+        <div class="SubControllerContainer">
+            <span class="radio-label">Show:</span>
+            <div class="radio-toggle">
+                <input type="radio" id="status_show_all" name="status_show" value="all" checked />
+                <label for="status_show_all">All workflows</label>
+                <input type="radio" id="status_show_failing" name="status_show" value="failing" />
+                <label for="status_show_failing">Failing</label>
+            </div>
+        </div>
+    </div>
+    <div class="view-section">
+        <div id="status_table" class="plot-table"></div>
+    </div>
+
+    <!-- Rows are repositories across the archive, or the workflows of one
+         repository once one is selected; see build_status_grid in stats.ts. -->
+    <div class="ControllerContainer PlotViewControls" id="grid">
+        <a href="#grid" class="section-anchor" aria-label="Link to this section">#</a>
+        <div class="SubControllerContainer">
+            <span class="radio-label">Cells:</span>
+            <div class="radio-toggle">
+                <input type="radio" id="grid_bin_daily" name="grid_bin" value="daily" checked />
+                <label for="grid_bin_daily">Days</label>
+                <input type="radio" id="grid_bin_weekly" name="grid_bin" value="weekly" />
+                <label for="grid_bin_weekly">Weeks</label>
+            </div>
+        </div>
+    </div>
+    <div class="view-section">
+        <div id="grid_legend" class="grid-legend"></div>
+        <div id="grid_plot" class="plot"></div>
+    </div>
+
+    <div class="ControllerContainer PlotViewControls" id="durations">
+        <a href="#durations" class="section-anchor" aria-label="Link to this section">#</a>
+        <div class="SubControllerContainer">
+            <span class="radio-label">View:</span>
+            <div class="radio-toggle">
+                <input type="radio" id="durations_view_plot" name="durations_view" value="plot" checked />
+                <label for="durations_view_plot">Plot</label>
+                <input type="radio" id="durations_view_table" name="durations_view" value="table" />
+                <label for="durations_view_table">Table</label>
+            </div>
+        </div>
+    </div>
+    <div class="view-section">
+        <div id="durations_plot" class="plot"></div>
+        <div id="durations_table" class="plot-table" style="display:none;"></div>
+    </div>
+    </div>
+    <p class="page-footnote">
+        Each run is counted once, in its latest state; runs still in progress are not shown.<br>
+        Success rate is the share of succeeded runs among those that succeeded or failed.
+    </p>
+    <footer class="site-footer">
+        <span class="site-version" id="site_version"></span>
+        <a href="https://centerforopenneuroscience.org" class="con-brand" target="_blank" rel="noopener" aria-label="Center for Open Neuroscience">
+            <img src="./assets/con-logo.png" alt="Center for Open Neuroscience" class="con-logo">
+        </a>
+    </footer>
+</body>
+</html>

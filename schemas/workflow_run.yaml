@@ -1,0 +1,133 @@
+id: https://github.com/con/spectus/schemas/workflow_run
+name: spectus-workflow-run
+title: Spectus workflow run record
+description: >-
+  A summary of a single GitHub Actions workflow run, as recorded on the `data`
+  branch. Each line of `data/{owner}/{repository}/{YYYYMM}.jsonl` is a JSON
+  object with exactly one key, the minute the run was created (UTC, formatted
+  `YYYY-MM-DDTHH:MM`), whose value is one instance of this record. The file a
+  line is in is the month of that same minute.
+version: 1.0.0
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  spectus: https://github.com/con/spectus/schemas/
+
+default_prefix: spectus
+default_range: string
+
+imports:
+  - linkml:types
+
+classes:
+  WorkflowRun:
+    tree_root: true
+    description: >-
+      The state of one workflow run when it was observed. A run that is re-run
+      after it was recorded is recorded again, with its new state.
+    slots:
+      - id
+      - repository
+      - workflow_name
+      - workflow_path
+      - run_number
+      - event
+      - status
+      - conclusion
+      - created_at
+      - updated_at
+      - started_at
+      - completed_at
+      - duration_seconds
+      - head_branch
+      - head_sha
+      - actor
+      - url
+
+slots:
+  id:
+    description: The database ID of the run, unique across GitHub.
+    range: integer
+    required: true
+    minimum_value: 1
+  repository:
+    description: The repository the run belongs to, as `owner/name`.
+    range: RepositoryName
+    required: true
+  workflow_name:
+    description: The name of the workflow that ran.
+    required: true
+  workflow_path:
+    description: The path of the workflow file within its repository, such as `.github/workflows/tests.yml`.
+  run_number:
+    description: The number of the run within its workflow.
+    range: integer
+    required: true
+    minimum_value: 1
+  event:
+    description: The event that triggered the run, such as `push`, `pull_request`, or `schedule`.
+    required: true
+  status:
+    description: The status of the run when it was observed.
+    range: RunStatus
+    required: true
+  conclusion:
+    description: The outcome of the run; null until the run has completed.
+    range: RunConclusion
+  created_at:
+    description: When the run was created.
+    range: datetime
+    required: true
+  updated_at:
+    description: When the run was last updated before it was observed.
+    range: datetime
+    required: true
+  started_at:
+    description: When the first job of the latest attempt of the run started.
+    range: datetime
+  completed_at:
+    description: When the last job of the latest attempt of the run completed.
+    range: datetime
+  duration_seconds:
+    description: The whole seconds from `started_at` to `completed_at`.
+    range: integer
+    minimum_value: 0
+  head_branch:
+    description: The branch the run ran on; null once that branch no longer exists.
+  head_sha:
+    description: The commit the run ran on.
+    required: true
+    pattern: "^[0-9a-f]{40}$"
+  actor:
+    description: The login of the user who triggered the run.
+  url:
+    description: The web page of the run.
+    range: uri
+    required: true
+
+types:
+  RepositoryName:
+    typeof: string
+    description: A repository written as `owner/name`.
+    pattern: "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}/[A-Za-z0-9._-]{1,100}$"
+
+enums:
+  RunStatus:
+    permissible_values:
+      requested:
+      queued:
+      pending:
+      waiting:
+      in_progress:
+      completed:
+  RunConclusion:
+    permissible_values:
+      action_required:
+      cancelled:
+      failure:
+      neutral:
+      skipped:
+      stale:
+      startup_failure:
+      success:
+      timed_out:

@@ -1,0 +1,62 @@
+id: https://github.com/con/spectus/schemas/config
+name: spectus-config
+title: Spectus scan configuration
+description: >-
+  Which GitHub repositories the workflow run scan covers.
+  One instance of this record lives as `config.json` on the `config` branch,
+  pretty-printed with an indent of four spaces.
+version: 1.0.0
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  spectus: https://github.com/con/spectus/schemas/
+
+default_prefix: spectus
+default_range: string
+
+imports:
+  - linkml:types
+
+classes:
+  Config:
+    tree_root: true
+    description: The set of repositories to scan for GitHub Actions workflow runs.
+    slots:
+      - organizations
+      - repositories
+      - include_forks
+
+slots:
+  organizations:
+    description: >-
+      GitHub organizations (or users) whose public repositories are all scanned.
+    range: OrganizationLogin
+    multivalued: true
+    required: true
+    list_elements_unique: true
+  repositories:
+    description: >-
+      Individual repositories to scan, each written as `owner/name` so that the
+      owner is never ambiguous. A repository also covered by one of the
+      organizations is scanned once.
+    range: RepositoryName
+    multivalued: true
+    required: true
+    list_elements_unique: true
+  include_forks:
+    description: >-
+      Whether the repositories of each organization that are forks of another
+      repository are scanned too. Forks listed under `repositories` are always
+      scanned.
+    range: boolean
+    ifabsent: "false"
+
+types:
+  OrganizationLogin:
+    typeof: string
+    description: The login of a GitHub organization or user.
+    pattern: "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$"
+  RepositoryName:
+    typeof: string
+    description: A repository written as `owner/name`.
+    pattern: "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}/[A-Za-z0-9._-]{1,100}$"

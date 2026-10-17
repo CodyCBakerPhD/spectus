@@ -1,0 +1,60 @@
+{
+    "name": "spectus",
+    "version": "0.1.0",
+    "description": "Metaview of cross-org GitHub status for maintenance purposes.",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite --config configs/vite.config.js",
+        "build": "vite build --config configs/vite.config.js && node src/scripts/build-data.mjs",
+        "preview": "vite preview --config configs/vite.config.js",
+        "format": "prettier --config configs/prettier.config.cjs --write .",
+        "format:check": "prettier --config configs/prettier.config.cjs --check .",
+        "typecheck": "tsc --noEmit --project configs/tsconfig.json",
+        "test": "vitest run --config configs/vitest.config.js",
+        "test:watch": "vitest --config configs/vitest.config.js",
+        "test:coverage": "vitest run --coverage --config configs/vitest.config.js",
+        "test:e2e": "playwright test --config configs/playwright.config.js",
+        "test:chromatic": "playwright test --config configs/playwright.chromatic.config.js",
+        "test:visual": "playwright test --config configs/playwright.visual.config.js",
+        "test:e2e:coverage": "PW_COVERAGE=1 playwright test --config configs/playwright.config.js",
+        "coverage:integration": "node src/scripts/build-integration-coverage.mjs",
+        "storybook": "storybook dev -p 6006 --config-dir configs/storybook",
+        "build-storybook": "storybook build --config-dir configs/storybook"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/con/spectus.git"
+    },
+    "keywords": [],
+    "author": "",
+    "bugs": {
+        "url": "https://github.com/con/spectus/issues"
+    },
+    "homepage": "https://github.com/con/spectus#readme",
+    "devDependencies": {
+        "@chromatic-com/playwright": "^0.13.4",
+        "@playwright/test": "1.56.1",
+        "@storybook/html-vite": "^10.5.3",
+        "@types/node": "^26.6.3",
+        "@types/plotly.js": "^3.0.10",
+        "@vitest/coverage-v8": "^5.0.2",
+        "ast-v8-to-istanbul": "^1.0.7",
+        "chromatic": "^18.10.1",
+        "istanbul-lib-coverage": "^3.2.2",
+        "istanbul-lib-report": "^3.0.1",
+        "istanbul-reports": "^3.2.0",
+        "jsdom": "^30.1.1",
+        "prettier": "^3.9.6",
+        "storybook": "^10.6.0",
+        "typescript": "^7.0.2",
+        "vite": "^8.3.1",
+        "vitest": "^5.0.2"
+    },
+    "dependencies": {
+        "plotly.js-dist-min": "^3.6.0"
+    },
+    "overrides": {
+        "esbuild": "^0.28.1"
+    }
+}

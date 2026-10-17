@@ -1,0 +1,76 @@
+{
+    "$defs": {
+        "Config": {
+            "additionalProperties": false,
+            "description": "The set of repositories to scan for GitHub Actions workflow runs.",
+            "properties": {
+                "include_forks": {
+                    "description": "Whether the repositories of each organization that are forks of another repository are scanned too. Forks listed under `repositories` are always scanned.",
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "organizations": {
+                    "description": "GitHub organizations (or users) whose public repositories are all scanned.",
+                    "items": {
+                        "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$",
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "repositories": {
+                    "description": "Individual repositories to scan, each written as `owner/name` so that the owner is never ambiguous. A repository also covered by one of the organizations is scanned once.",
+                    "items": {
+                        "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}/[A-Za-z0-9._-]{1,100}$",
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "organizations",
+                "repositories"
+            ],
+            "title": "Config",
+            "type": "object"
+        }
+    },
+    "$id": "https://github.com/con/spectus/schemas/config",
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "additionalProperties": false,
+    "description": "The set of repositories to scan for GitHub Actions workflow runs.",
+    "metamodel_version": "1.12.0",
+    "properties": {
+        "include_forks": {
+            "description": "Whether the repositories of each organization that are forks of another repository are scanned too. Forks listed under `repositories` are always scanned.",
+            "type": [
+                "boolean",
+                "null"
+            ]
+        },
+        "organizations": {
+            "description": "GitHub organizations (or users) whose public repositories are all scanned.",
+            "items": {
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$",
+                "type": "string"
+            },
+            "type": "array"
+        },
+        "repositories": {
+            "description": "Individual repositories to scan, each written as `owner/name` so that the owner is never ambiguous. A repository also covered by one of the organizations is scanned once.",
+            "items": {
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}/[A-Za-z0-9._-]{1,100}$",
+                "type": "string"
+            },
+            "type": "array"
+        }
+    },
+    "required": [
+        "organizations",
+        "repositories"
+    ],
+    "title": "spectus-config",
+    "type": "object",
+    "version": "1.0.0"
+}

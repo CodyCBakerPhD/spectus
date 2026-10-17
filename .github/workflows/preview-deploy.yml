@@ -1,0 +1,120 @@
+name: Preview deploy
+
+# Publishes the site built by `preview.yml`. A pull request from a fork only
+# gets a read-only token, so the build cannot push to `gh-pages` itself;
+# `workflow_run` always runs this file as it is on `main`, with write access.
+#
+# Nothing from the pull request is executed here: its build is copied to
+# `gh-pages` as files, and the pull request number it reports is checked
+# against the API before it is used.
+
+on:
+  workflow_run:
+    workflows:
+      - Preview
+    types:
+      - completed
+
+# Only one run per pull request branch waits here, so a newer build supersedes
+# an older one still queued. Pushes from different branches to `gh-pages` are
+# rebased onto each other by the deploy step rather than force-pushed.
+concurrency:
+  group: preview-deploy-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download pull request record
+        uses: actions/download-artifact@v8
+        with:
+          name: preview-meta
+          path: ${{ runner.temp }}/preview-meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          META_DIR: ${{ runner.temp }}/preview-meta
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          PR_NUMBER=$(head -c 16 "$META_DIR/pr-number" | tr -d '[:space:]')
+          PREVIEW_ACTION=$(head -c 16 "$META_DIR/action" | tr -d '[:space:]')
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid pull request number."
+            exit 1
+          fi
+          if [[ "$PREVIEW_ACTION" != deploy && "$PREVIEW_ACTION" != remove ]]; then
+            echo "::error::Invalid preview action."
+            exit 1
+          fi
+
+          # The record comes from the pull request's own run, so make sure it
+          # names the pull request that run was for. A mismatch is also what
+          # an outdated run looks like once a newer commit has been pushed;
+          # that run's own deploy will publish the newer build instead.
+          PR_HEAD=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha + " " + .head.repo.full_name')
+          if [[ "$PR_HEAD" != "$HEAD_SHA $HEAD_REPO" ]]; then
+            echo "Pull request #$PR_NUMBER is no longer at $HEAD_SHA from $HEAD_REPO; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "action=$PREVIEW_ACTION" >> "$GITHUB_OUTPUT"
+
+      - name: Download site
+        if: steps.pr.outputs.skip != 'true' && steps.pr.outputs.action == 'deploy'
+        uses: actions/download-artifact@v8
+        with:
+          name: preview-site
+          path: preview-site
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Deploy preview
+        id: preview
+        if: steps.pr.outputs.skip != 'true'
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: preview-site
+          preview-branch: gh-pages
+          action: ${{ steps.pr.outputs.action }}
+          pr-number: ${{ steps.pr.outputs.number }}
+          deploy-commit-message: Deploy preview for PR ${{ steps.pr.outputs.number }} 🛫
+          remove-commit-message: Remove preview for PR ${{ steps.pr.outputs.number }} 🛬
+          # The action's own comment looks for the pull request in the
+          # triggering event, which `workflow_run` does not carry.
+          comment: false
+
+      - name: Comment preview link
+        if: steps.pr.outputs.skip != 'true' && steps.pr.outputs.action == 'deploy'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pr-preview
+          number: ${{ steps.pr.outputs.number }}
+          message: |
+            :rocket: Preview of ${{ github.event.workflow_run.head_sha }}: ${{ steps.preview.outputs.preview-url }}
+
+            It will be live once the [GitHub Pages deployment](${{ github.server_url }}/${{ github.repository }}/deployments) finishes.
+
+      - name: Comment preview removal
+        if: steps.pr.outputs.skip != 'true' && steps.pr.outputs.action == 'remove'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pr-preview
+          number: ${{ steps.pr.outputs.number }}
+          message: |
+            Preview removed because the pull request was closed.

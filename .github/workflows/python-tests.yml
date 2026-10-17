@@ -1,0 +1,72 @@
+name: Python tests
+
+on:
+  pull_request:
+    paths:
+      - spectus/**
+      - schemas/**
+      - scripts/generate_json_schemas.py
+      - tests/python/**
+      - pyproject.toml
+      - .github/workflows/python-tests.yml
+  push:
+    branches:
+      - main
+    paths:
+      - spectus/**
+      - schemas/**
+      - scripts/generate_json_schemas.py
+      - tests/python/**
+      - pyproject.toml
+      - .github/workflows/python-tests.yml
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Scanner tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group test
+
+      - name: Run tests with coverage
+        run: python -m pytest --cov --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: python
+          fail_ci_if_error: false
+          verbose: true
+
+  schemas:
+    name: JSON Schema exports match their LinkML sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group schemas
+
+      - name: Check the exports
+        run: python scripts/generate_json_schemas.py --check
