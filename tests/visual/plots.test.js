@@ -29,6 +29,23 @@ const VIEWPORTS = [
 const PLOTS = ["over_time_plot", "grid_plot"];
 
 /**
+ * Describes how a plot was laid out: where Plotly put its plotting area, how wide it measured the labels it made room
+ * for, and which fonts the page had loaded.  A plot whose marks moved without changing is usually one whose labels
+ * measured differently, which this names when a comparison fails.
+ */
+function describeLayout(page, id) {
+    return page.evaluate((id) => {
+        const plot = document.getElementById(id);
+        const { l, t, w, h } = plot._fullLayout._size;
+        const labels = Array.from(plot.querySelectorAll(".ytick text"), (text) => text.getBBox().width.toFixed(2));
+        const fonts = Array.from(document.fonts)
+            .filter((font) => font.status === "loaded")
+            .map((font) => `${font.family} ${font.weight}`);
+        return `Plotting area at (${l}, ${t}), ${w} by ${h}; y labels ${labels.join(", ")} px wide; fonts loaded: ${fonts.join(", ") || "none"}`;
+    }, id);
+}
+
+/**
  * Moves a plot to the top-left corner of the viewport for its capture, and returns how to put it back.
  *
  * Its size in CSS pixels is a whole number, but its position is not certain to be: it sits below text whose height
@@ -80,13 +97,16 @@ for (const viewport of VIEWPORTS) {
             for (const id of PLOTS) {
                 const unpin = await pinToViewportCorner(page, id);
                 const plot = page.locator(`#${id}`);
-                await expect(plot).toHaveScreenshot(`${id}-${theme}-${viewport.name}.png`, {
-                    mask: MASKED_TEXT.map((selector) => plot.locator(selector)),
-                    // Room for antialiasing to differ between machines, and nowhere near enough to let a plot whose
-                    // marks moved or changed color pass
-                    maxDiffPixelRatio: 0.02,
-                    animations: "disabled",
-                });
+                await expect(plot, await describeLayout(page, id)).toHaveScreenshot(
+                    `${id}-${theme}-${viewport.name}.png`,
+                    {
+                        mask: MASKED_TEXT.map((selector) => plot.locator(selector)),
+                        // Room for antialiasing to differ between machines, and nowhere near enough to let a plot whose
+                        // marks moved or changed color pass
+                        maxDiffPixelRatio: 0.02,
+                        animations: "disabled",
+                    }
+                );
                 await unpin();
             }
         });
