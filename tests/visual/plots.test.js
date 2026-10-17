@@ -28,6 +28,42 @@ const VIEWPORTS = [
 
 const PLOTS = ["over_time_plot", "grid_plot"];
 
+/**
+ * Moves a plot to the top-left corner of the viewport for its capture, and returns how to put it back.
+ *
+ * Its size in CSS pixels is a whole number, but its position is not certain to be: it sits below text whose height
+ * rounds differently depending on the fonts available (the outcome badges' ✓ and ✕ are not in the page's typeface,
+ * so each machine draws them from a font of its own).  An element straddling the pixel grid is captured one pixel
+ * taller than it is, and Playwright rejects a size mismatch outright without comparing anything, so a baseline taken
+ * on one machine could never match another.
+ *
+ * Pinning it to whole coordinates, over a backdrop of its own, makes the captured image depend on the plot alone.
+ * Nothing is redrawn: the size is held as it was, so Plotly has no resize to react to.
+ */
+async function pinToViewportCorner(page, id) {
+    await page.evaluate((id) => {
+        const element = document.getElementById(id);
+        const { width, height } = element.getBoundingClientRect();
+        element.dataset.pinnedStyle = element.getAttribute("style") ?? "";
+        Object.assign(element.style, {
+            // Held at the size it was laid out at, which a fixed element would otherwise shrink from
+            width: `${width}px`,
+            height: `${height}px`,
+            position: "fixed",
+            top: "0",
+            left: "0",
+            margin: "0",
+            background: getComputedStyle(document.body).backgroundColor,
+            zIndex: "9999",
+        });
+    }, id);
+    return () =>
+        page.evaluate((id) => {
+            const element = document.getElementById(id);
+            element.setAttribute("style", element.dataset.pinnedStyle);
+        }, id);
+}
+
 for (const viewport of VIEWPORTS) {
     for (const theme of ["dark", "light"]) {
         test(`plots — ${theme} — ${viewport.name}`, async ({ page }) => {
@@ -42,12 +78,16 @@ for (const viewport of VIEWPORTS) {
             await page.mouse.move(0, 0);
 
             for (const id of PLOTS) {
+                const unpin = await pinToViewportCorner(page, id);
                 const plot = page.locator(`#${id}`);
                 await expect(plot).toHaveScreenshot(`${id}-${theme}-${viewport.name}.png`, {
                     mask: MASKED_TEXT.map((selector) => plot.locator(selector)),
-                    maxDiffPixelRatio: 0.01,
+                    // Room for antialiasing to differ between machines, and nowhere near enough to let a plot whose
+                    // marks moved or changed color pass
+                    maxDiffPixelRatio: 0.02,
                     animations: "disabled",
                 });
+                await unpin();
             }
         });
     }
