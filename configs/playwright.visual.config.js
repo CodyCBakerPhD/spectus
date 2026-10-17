@@ -1,0 +1,39 @@
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * Screenshot-comparison suite.  Separate from the Chromatic config because the
+ * two answer different questions: Chromatic diffs an archived DOM in its own
+ * service, this one diffs pixels the browser painted against PNGs committed
+ * beside the tests, which is the only way to hold a WebGL canvas to account.
+ */
+export default defineConfig({
+    testDir: "../tests/visual",
+    fullyParallel: true,
+    forbidOnly: !!process.env.CI,
+    retries: process.env.CI ? 2 : 0,
+    workers: process.env.CI ? 1 : undefined,
+    // On CI, failures are also reported as annotations on the run, readable without downloading the report
+    reporter: process.env.CI
+        ? [["github"], ["html", { outputFolder: "../playwright-report-visual", open: "never" }]]
+        : [["html", { outputFolder: "../playwright-report-visual", open: "never" }]],
+    use: {
+        baseURL: "http://localhost:5173",
+        trace: "on-first-retry",
+        launchOptions: {
+            // Without hinting, as text is measured in Claude Code cloud sessions; GitHub's runners otherwise hint
+            // fully, which rounds glyph widths to whole pixels and moves whatever Plotly lays out around its labels
+            args: ["--disable-gpu", "--font-render-hinting=none"],
+        },
+    },
+    projects: [
+        {
+            name: "chromium",
+            use: { ...devices["Desktop Chrome"] },
+        },
+    ],
+    webServer: {
+        command: "npm run dev",
+        url: "http://localhost:5173",
+        reuseExistingServer: !process.env.CI,
+    },
+});

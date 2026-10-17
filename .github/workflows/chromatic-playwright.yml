@@ -1,0 +1,50 @@
+name: Chromatic (Playwright)
+
+# Runs the Playwright tests and builds their archive Storybook with a
+# read-only token, so it is safe to run on pull requests from forks. The
+# build is handed to `chromatic-publish.yml` as an artifact, and that
+# workflow — which runs from `main` with the project token — uploads it to
+# Chromatic.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  chromatic-playwright:
+    # Named for the required check it satisfies; Chromatic's own statuses
+    # on the commit report the result of the upload.
+    name: Run Chromatic (Playwright)
+    # A branch in this repository is already built on push, which a fork's
+    # branch never is here, so only a fork's pull request is built as one.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # The commit Chromatic reports on, rather than the merge
+          # commit a pull request would otherwise check out.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Run Playwright tests
+        run: npm run test:chromatic
+      # Called directly rather than through `npm exec`, which would take
+      # `--output-dir` as one of its own options.
+      - name: Build archive Storybook
+        run: ./node_modules/.bin/build-archive-storybook --output-dir=storybook-static
+      - name: Upload archive Storybook
+        uses: actions/upload-artifact@v7
+        with:
+          name: chromatic-build
+          path: storybook-static/
+          retention-days: 1

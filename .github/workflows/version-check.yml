@@ -1,0 +1,90 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "package.json"
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check version bump
+        run: |
+          BASE_REF="origin/${{ github.base_ref }}"
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF"...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if ! git cat-file -e "$BASE_REF":package.json 2>/dev/null; then
+            echo "package.json is new; there is no earlier version to compare against."
+            exit 0
+          fi
+
+          REQUIRE_BUMP=false
+          if echo "$CHANGED_FILES" | grep -q '^src/'; then
+            REQUIRE_BUMP=true
+            echo "Source changes detected; version bump is required."
+          elif echo "$CHANGED_FILES" | grep -q '^package.json$'; then
+            DEPENDENCY_ONLY_PKG_CHANGE=$(
+              BASE_REF="$BASE_REF" node -e '
+                const { readFileSync } = require("node:fs");
+                const { execSync } = require("node:child_process");
+
+                const baseRef = process.env.BASE_REF;
+                const basePkg = JSON.parse(execSync(`git show ${baseRef}:package.json`, { encoding: "utf8" }));
+                const prPkg = JSON.parse(readFileSync("package.json", "utf8"));
+                const stripForDependencyOnlyCheck = (pkg) => {
+                  const copy = JSON.parse(JSON.stringify(pkg));
+                  delete copy.version;
+                  delete copy.dependencies;
+                  delete copy.devDependencies;
+                  delete copy.peerDependencies;
+                  delete copy.optionalDependencies;
+                  delete copy.bundleDependencies;
+                  delete copy.bundledDependencies;
+                  delete copy.overrides;
+                  delete copy.resolutions;
+                  delete copy.packageManager;
+                  return copy;
+                };
+
+                const isDependencyOnly =
+                  JSON.stringify(stripForDependencyOnlyCheck(basePkg)) ===
+                  JSON.stringify(stripForDependencyOnlyCheck(prPkg));
+
+                process.stdout.write(isDependencyOnly ? "true" : "false");
+              '
+            )
+
+            if [ "$DEPENDENCY_ONLY_PKG_CHANGE" = "true" ]; then
+              echo "Dependency-only package.json change detected; version bump not required."
+              exit 0
+            fi
+
+            REQUIRE_BUMP=true
+            echo "Non-dependency package.json changes detected; version bump is required."
+          else
+            echo "No src/ or package.json changes detected; skipping version bump check."
+            exit 0
+          fi
+
+          PR_VERSION=$(node -p "require('./package.json').version")
+          BASE_VERSION=$(git show "$BASE_REF":package.json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).version))")
+          echo "Base version: $BASE_VERSION"
+          echo "PR version:   $PR_VERSION"
+          if [ "$REQUIRE_BUMP" = "true" ] && [ "$PR_VERSION" = "$BASE_VERSION" ]; then
+            echo "::error::Version has not been bumped. Please update the version in package.json."
+            exit 1
+          fi
+          echo "Version bumped from $BASE_VERSION to $PR_VERSION ✓"

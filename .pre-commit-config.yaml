@@ -43,6 +43,7 @@ repos:
   - id: codespell
     additional_dependencies:
     - tomli
+    exclude: 'package-lock\.json$'
 
 - repo: https://github.com/pre-commit/mirrors-mypy
   rev: v2.1.0

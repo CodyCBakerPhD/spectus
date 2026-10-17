@@ -1,0 +1,153 @@
+name: Weekly tests
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    outputs:
+      has-warnings: ${{ steps.check-warnings.outputs.has-warnings }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+
+      - name: Check for build warnings
+        id: check-warnings
+        if: always()
+        shell: bash
+        run: |
+          if grep -qE '^\(!\)|\[WARNING\]|DeprecationWarning' build.log; then
+            echo "has-warnings=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-warnings=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  unit-tests:
+    name: Unit tests (Vitest)
+    runs-on: ubuntu-latest
+    outputs:
+      has-warnings: ${{ steps.check-warnings.outputs.has-warnings }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee unit-test.log
+
+      - name: Check for warnings
+        id: check-warnings
+        if: always()
+        shell: bash
+        run: |
+          if grep -qiE '\bwarning\b' unit-test.log; then
+            echo "has-warnings=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-warnings=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  integration-tests:
+    name: Integration tests (Playwright)
+    runs-on: ubuntu-latest
+    outputs:
+      has-warnings: ${{ steps.check-warnings.outputs.has-warnings }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee e2e-test.log
+
+      - name: Check for warnings
+        id: check-warnings
+        if: always()
+        shell: bash
+        run: |
+          if grep -q "\[browser:warning\]" e2e-test.log; then
+            echo "has-warnings=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-warnings=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  notify-on-warnings:
+    runs-on: ubuntu-latest
+    needs: [build, unit-tests, integration-tests]
+    if: |
+      always() && (
+        needs.build.result == 'failure' ||
+        needs.unit-tests.result == 'failure' ||
+        needs.integration-tests.result == 'failure' ||
+        needs.build.outputs.has-warnings == 'true' ||
+        needs.unit-tests.outputs.has-warnings == 'true' ||
+        needs.integration-tests.outputs.has-warnings == 'true'
+      )
+    permissions: {}
+    steps:
+      - uses: dawidd6/action-send-mail@v22
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "CI Warning: `spectus` Weekly tests"
+          to: cody.c.baker.phd@gmail.com
+          from: spectus
+          body: |
+            The weekly test run for the spectus repository has detected warnings or failures.
+
+            Build:              ${{ needs.build.result }}  (warnings: ${{ needs.build.outputs.has-warnings }})
+            Unit tests:         ${{ needs.unit-tests.result }}  (warnings: ${{ needs.unit-tests.outputs.has-warnings }})
+            Integration tests:  ${{ needs.integration-tests.result }}  (warnings: ${{ needs.integration-tests.outputs.has-warnings }})
+
+            Please review the workflow run at ${{ github.server_url }}/${{ github.repository }}/actions/workflows/weekly-tests.yml

@@ -1,0 +1,17 @@
+# Kept as written: markup, styles, YAML, and Markdown follow their own conventions here
+*.html
+*.css
+*.md
+*.yml
+*.yaml
+
+# Generated
+package-lock.json
+schemas/*.schema.json
+coverage/
+dist/
+storybook-static/
+playwright-report*/
+test-results/
+data-branch/
+.spectus-cache/

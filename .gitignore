@@ -1,2 +1,23 @@
 __pycache__/
 *.pyc
+.coverage
+coverage.xml
+.pytest_cache/
+
+# PyCharm
+.idea/*
+
+# Web app
+node_modules/
+dist/
+storybook-static/
+playwright-report/
+playwright-report-chromatic/
+playwright-report-visual/
+test-results/
+coverage/
+
+# A local checkout of the `data` branch, read by `npm run dev` and `npm run build`
+data-branch/
+# What a local scan keeps between runs
+.spectus-cache/

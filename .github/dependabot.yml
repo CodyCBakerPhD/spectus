@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "quarterly"
+    rebase-strategy: "disabled"
+    assignees:
+      - "CodyCBakerPhD"
+    labels: []
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "quarterly"
+    rebase-strategy: "disabled"
+    assignees:
+      - "CodyCBakerPhD"
+    labels: []

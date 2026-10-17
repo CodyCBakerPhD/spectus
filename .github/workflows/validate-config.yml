@@ -1,0 +1,83 @@
+name: Validate config
+
+# Checks `config.json` against schemas/config.schema.json, the JSON Schema export of schemas/config.yaml: its contents,
+# that it lists no organization or repository twice, and that it is pretty-printed with an indent of four spaces. The
+# `config` branch must hold that file and nothing else.
+#
+# What is checked:
+# - every pull request into `config`, as it would leave the branch;
+# - the current `config` branch, whenever the schema changes on `main` or in a pull request into `main` (against the
+#   proposed schema), every day, and on demand.
+#
+# The `config` branch has no workflows of its own, so pull requests into it are reached through `pull_request_target`,
+# which always runs this file as it is on the default branch. That event runs with access to the repository, so the
+# pull request's files are only ever read as data here; nothing from it is executed.
+
+on:
+  pull_request_target:
+    branches:
+      - config
+  pull_request:
+    branches:
+      - main
+    paths:
+      - schemas/config.*
+      - spectus/config.py
+      - .github/workflows/validate-config.yml
+  push:
+    branches:
+      - main
+    paths:
+      - schemas/config.*
+      - spectus/config.py
+      - .github/workflows/validate-config.yml
+  schedule:
+    - cron: '41 6 * * *'  # Every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate config.json
+    runs-on: ubuntu-latest
+    steps:
+      # On `pull_request_target`, this is `main`; on a pull request into `main`, the proposed change
+      - name: Checkout the schema and validator
+        uses: actions/checkout@v7
+        with:
+          path: main
+          persist-credentials: false
+
+      - name: Checkout the config
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || 'config' }}
+          path: config
+          persist-credentials: false
+
+      - name: Check that config.json is the only file
+        working-directory: config
+        run: |
+          files=$(git ls-files)
+          if [[ "$files" != "config.json" ]]; then
+            echo "::error::The config branch must hold config.json and nothing else; found:"
+            echo "$files"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        working-directory: main
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group scan
+
+      - name: Validate
+        working-directory: main
+        run: python -m spectus validate-config ../config/config.json

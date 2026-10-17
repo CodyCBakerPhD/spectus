@@ -1,3 +1,11 @@
+# Not an installable package: the scan runs as `python -m spectus` from a checkout of `main`, next to the schemas it
+# validates against. The dependency groups install what each job needs, e.g. `pip install --group test`.
+[dependency-groups]
+scan = ["jsonschema>=4.23"]
+test = [{include-group = "scan"}, "pytest>=8", "pytest-cov>=6"]
+# Pinned, since the JSON Schema exports under schemas/ are checked against what this exact version generates
+schemas = ["linkml==1.12.1"]
+
 [tool.black]
 line-length = 120
 target-version = ['py311']
@@ -28,6 +36,8 @@ ignore = [
     # Docstring style: prefer the D213 / D211 conventions
     "D203",
     "D212",
+    # Constructors are described by their class docstring
+    "D107",
     # Scripts deliberately use `print` instead of logging
     "T201",
     # Common HTTP status codes (200, 403, ...) and other small integer
@@ -43,6 +53,27 @@ ignore = [
 ]
 fixable = ["ALL"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/python/**" = [
+    # Tests assert, and need neither docstrings nor annotations to read well
+    "S101",
+    "D",
+    "ANN",
+    # Tests poke at internals and build fake responses from literal values, fake tokens included
+    "SLF001",
+    "PLR2004",
+    "ARG",
+    "S106",
+]
+
 [tool.mypy]
 python_version = "3.11"
-files = ["scripts"]
+files = ["scripts", "spectus"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["."]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["spectus"]

@@ -1,0 +1,1011 @@
+:root {
+    /* ── Theme colors — adjust these variables to customize the color scheme ── */
+    --color-bg: #1a1a2e;
+    --color-surface: #16213e;
+    --color-header: #0f3460;
+    --color-border: #2a2a4a;
+    --color-text: #e0e0e0;
+    --color-text-secondary: #a0a0b0;
+    --color-accent: #53a8b6;
+    --color-accent-rgb: 83, 168, 182;
+    --color-accent-hover: #79c7d4;
+    --color-accent-subtle: rgba(var(--color-accent-rgb), 0.08);
+    --color-scrollbar-thumb: rgba(var(--color-accent-rgb), 0.35);
+    --color-scrollbar-thumb-hover: rgba(var(--color-accent-rgb), 0.65);
+    /* Tooltips sit on --color-header, which is dark under both themes, so their
+       text stays light in both and is not part of the light-theme overrides. */
+    --color-tooltip-text: #e0e0e0;
+    /* ─────────────────────────────────────────────────────────────────────── */
+    --font-main: 'Source Sans 3', -apple-system, sans-serif;
+    --radius: 6px;
+}
+
+/* ── Light theme overrides ── */
+[data-theme="light"] {
+    --color-bg: #f5f7fa;
+    --color-surface: #ffffff;
+    --color-header: #0f3460;
+    --color-border: #d1d9e0;
+    --color-text: #1a1a2e;
+    --color-text-secondary: #5a6580;
+    --color-accent: #53a8b6;
+    --color-accent-rgb: 83, 168, 182;
+    --color-accent-hover: #3d8a97;
+    --color-accent-subtle: rgba(var(--color-accent-rgb), 0.1);
+    --color-scrollbar-thumb: rgba(var(--color-accent-rgb), 0.45);
+    --color-scrollbar-thumb-hover: rgba(var(--color-accent-rgb), 0.75);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* ── Anti-FOUC / preload guard ───────────────────────────────────────────────
+   The 'preload' class is added synchronously by the inline <head> script and
+   removed by main.ts (via requestAnimationFrame) after init_theme() and
+   sync_from_url() have both completed.  During this window:
+   • body is invisible so the scrambled intermediate state is never seen.
+   • all transitions/animations are suppressed so state changes don't play as
+     animations (e.g. theme application, URL-param sync of form controls). */
+html.preload body {
+    visibility: hidden;
+}
+
+html.preload,
+html.preload * {
+    transition: none !important;
+    animation: none !important;
+}
+
+body {
+    font-family: var(--font-main);
+    color: var(--color-text);
+    background: var(--color-bg);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Site header ── */
+.site-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    height: 48px;
+    background: var(--color-header);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.site-brand {
+    text-decoration: none;
+    color: var(--color-accent);
+    font-size: 1em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.site-brand:hover {
+    color: var(--color-accent-hover);
+}
+
+.site-logo {
+    height: 30px;
+    width: auto;
+}
+
+.site-title {
+    color: var(--color-text-secondary);
+    font-size: 0.9em;
+    font-weight: 400;
+}
+
+.site-header-spacer {
+    flex: 1;
+}
+
+.site-github-link {
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+}
+
+.site-github-link:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.site-github-link svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+/* ── Header link to the data repository (GitHub mark + database badge) ──
+   The badge circle is filled with --color-header (the always-dark header blue)
+   so it visually "cuts out" a corner of the GitHub mark in both themes. */
+.site-data-link svg {
+    overflow: visible;
+}
+
+/* ── Theme toggle button ──
+   Colors are hardcoded white (matching .site-github-link) because the header
+   background (--color-header) is always the same dark blue in both themes. */
+.theme-toggle-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border-radius: var(--radius);
+    transition: color 0.2s, background 0.2s;
+    line-height: 1;
+}
+
+.theme-toggle-btn:hover {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.theme-toggle-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+/* ── Page content ── */
+.page-content {
+    padding: 0 20px;
+}
+
+h1 {
+    font-weight: 300;
+    font-size: 1.8em;
+    letter-spacing: -0.01em;
+    text-align: center;
+    margin: 28px 0 16px;
+    color: var(--color-text);
+}
+
+
+/* ── Totals summary ──
+   The scalar totals of the current selection, as a table of one metric per
+   row, laid out here as a row of labelled columns with each metric's caveats
+   behind an info icon rather than spelled out as a footnote.
+
+   The DOM rows are turned into the columns of a wrapping flex row, so that a
+   viewport too narrow for all of them breaks the summary over as many lines as
+   it takes instead of scrolling sideways. */
+#totals {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    font-weight: 300;
+    margin: 12px auto 24px;
+    max-width: 100%;
+    color: var(--color-text-secondary);
+    /* The tooltip of an info icon near the edge of a narrow viewport hangs
+       past it, and is laid out whether or not it is being shown, so without
+       this the whole page scrolls sideways to reveal a tooltip nobody can
+       see.  `clip` rather than `hidden` so that the tooltips, which hang
+       below their icon, are still free to overflow downwards. */
+    overflow-x: clip;
+}
+
+.totals-note {
+    font-size: 0.95em;
+    max-width: 640px;
+}
+
+/* Trails the last line of the note, rather than being centered against the
+   block as a flex item would be when the text wraps. */
+.totals-note .info-icon {
+    vertical-align: -2px;
+}
+
+.totals-table {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 14px;
+    max-width: 100%;
+}
+
+.totals-table tbody {
+    display: contents;
+}
+
+/* One metric: its label above its value, the two the same width. */
+.totals-table tr {
+    display: flex;
+    flex-direction: column;
+}
+
+/* The columns of a line are flush against one another, so that the rules under
+   their labels join into the single rule the line is read against. */
+.totals-table th,
+.totals-table td {
+    padding-left: clamp(8px, 1.2vw, 16px);
+    padding-right: clamp(8px, 1.2vw, 16px);
+    white-space: nowrap;
+}
+
+.totals-table th {
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.totals-th-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.totals-table td {
+    font-size: clamp(1.15rem, 0.85rem + 1.1vw, 1.5rem);
+    font-weight: 300;
+    text-align: center;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+    padding-top: 8px;
+}
+
+/* The control bars are sized to their contents, but never past the width of
+   the viewport: past that they wrap onto as many rows as they need, rather
+   than overflowing and taking the whole page into a sideways scroll. */
+.ControllerContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    width: fit-content;
+    max-width: 100%;
+}
+
+/* A row of control bars that belong to one plot, laid out as separate cards
+   so that each choice reads as its own rather than as more of the last one.
+   The row wraps like the bars themselves, and a card hidden for the current
+   view leaves no gap behind it. */
+.ControllerRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* The cards are spaced by the row's gap; an `auto` side margin inside a flex
+   row would absorb the free space and push them apart instead. */
+.ControllerRow > .ControllerContainer {
+    margin: 0;
+}
+
+.SubControllerContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    /* Flex items refuse to shrink below their content by default, which for a
+       group holding a <select> means below the widest option in it.  Allowing
+       it to shrink is what lets the rule on `select` below take effect. */
+    min-width: 0;
+}
+
+label {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* A <select> is laid out as wide as the widest option it holds, and repository
+   names can be long, which on a narrow viewport runs the control — and the bar
+   around it — off the side of the screen.  Capping it clips the label of the
+   selected option instead; the drop-down itself is drawn by the browser at
+   whatever width its options need, so nothing becomes unreadable at the point
+   of choosing. */
+select {
+    font-family: var(--font-main);
+    font-size: 0.85em;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+    max-width: 100%;
+}
+
+select:hover, select:focus {
+    border-color: var(--color-accent);
+}
+
+input[type="checkbox"] {
+    accent-color: var(--color-accent);
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+}
+
+input[type="number"] {
+    font-family: var(--font-main);
+    font-size: 0.85em;
+    padding: 4px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    outline: none;
+    width: 4em;
+    transition: border-color 0.15s;
+}
+
+input[type="number"]:hover,
+input[type="number"]:focus {
+    border-color: var(--color-accent);
+}
+
+/* Reserve vertical space so the layout doesn't shift when Plotly renders
+   (Plotly's default plot height is 450 px).  The status grid and the durations
+   plot are as tall as they have rows, so they reserve only their least. */
+.plot {
+    margin: 8px auto;
+    max-width: 95vw;
+    min-height: 450px;
+}
+
+#grid_plot,
+#durations_plot {
+    min-height: 220px;
+}
+
+/* A plot that has nothing to show holds its message instead of a drawing. */
+.plot-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    color: var(--color-text-secondary);
+    font-weight: 300;
+}
+
+
+.PlotViewControls {
+    margin: 16px auto 0;
+    width: fit-content;
+    max-width: 100%;
+    /* 48 px sticky header + 12 px breathing room */
+    scroll-margin-top: 60px;
+}
+
+/* ── Per-plot anchor link ──
+   Taken out of the flex flow and tucked into the container's left padding so
+   the anchor, which is invisible until the container is hovered, leaves no
+   gap to the left of the first control (the "View:" label). */
+.section-anchor {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 1em;
+    font-weight: 400;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    user-select: none;
+}
+
+.ControllerContainer:hover .section-anchor,
+.section-anchor:focus {
+    opacity: 1;
+}
+
+.section-anchor:hover {
+    color: var(--color-accent);
+}
+
+/* Wrapper for each section's plot + table; min-height is locked via JS on
+   first view-switch to prevent elements below from jumping up or down. */
+.view-section {
+    width: 100%;
+}
+
+/* As wide as its table, but never past the page: a table too wide for a
+   narrow viewport scrolls sideways inside its container instead. */
+.plot-table {
+    width: fit-content;
+    max-width: min(1100px, 100%);
+    margin: 0 auto 16px;
+    padding: 0 16px;
+}
+
+.plot-table h3 {
+    font-weight: 300;
+    font-size: 1.1em;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+.plot-table-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.table-data-link {
+    font-size: 1em;
+    color: var(--color-accent);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.table-data-link:hover {
+    text-decoration: underline;
+}
+
+.plot-table-container {
+    max-height: 480px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* ── Table scroll bars ──
+   The platform default is a wide light-gray slab with stepper arrows at both
+   ends, which reads as a foreign element pasted onto a themed table — most
+   glaringly in dark mode.  It is replaced with a slim, rounded, accent-tinted
+   thumb on a transparent track, so the table's own background runs all the way
+   to its edge and the thumb reads as part of the table.
+
+   The ::-webkit-scrollbar rules are used wherever they are understood (Chrome,
+   Safari), since they can also drop the stepper arrows; browsers without them
+   (Firefox) get the standard `scrollbar-*` properties instead.  Both paths are
+   needed because Chrome ignores the pseudo-elements as soon as the standard
+   properties are set, and Firefox supports only the standard ones. */
+@supports not selector(::-webkit-scrollbar) {
+    .plot-table-container {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-scrollbar-thumb) transparent;
+    }
+}
+
+.plot-table-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.plot-table-container::-webkit-scrollbar-track,
+.plot-table-container::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* The transparent border, together with the padding-box clip, insets the thumb
+   from the edges of its track without a second element to color. */
+.plot-table-container::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar-thumb);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+}
+
+.plot-table-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-scrollbar-thumb-hover);
+}
+
+/* Drops the stepper arrows at the ends of the track. */
+.plot-table-container::-webkit-scrollbar-button {
+    display: none;
+}
+
+.plot-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.plot-table th {
+    text-align: center;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    border-bottom: 2px solid var(--color-border);
+    padding: 6px 6px;
+    position: sticky;
+    top: 0;
+    background: var(--color-surface);
+    z-index: 1;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.th-sorted {
+    color: var(--color-accent);
+}
+
+.sort-indicator {
+    font-size: 0.7em;
+    margin-left: 3px;
+    opacity: 0.45;
+    vertical-align: middle;
+}
+
+.th-sorted .sort-indicator {
+    opacity: 1;
+}
+
+.plot-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text);
+    text-align: center;
+}
+
+.plot-table td:not(:last-child) {
+    max-width: 600px;
+    overflow-wrap: break-word;
+}
+
+/* Hyperlinked table cells (e.g. workflow runs linking to GitHub) */
+.table-cell-link {
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+.table-cell-link:hover,
+.table-cell-link:focus-visible {
+    text-decoration: underline;
+}
+
+.plot-table td:last-child,
+.plot-table th:last-child {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.plot-table tr:hover td {
+    background: var(--color-accent-subtle);
+}
+
+.radio-label {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.01em;
+}
+
+/* ── Segmented radio toggle ──────────────────────────────────── */
+.radio-toggle {
+    display: inline-flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+}
+
+/* A pair of options laid out as one item of the toggle, so that a toggle too
+   narrow for all of its options wraps the pair onto the next row together
+   rather than stranding the second of them there alone. */
+.radio-toggle-pair {
+    display: inline-flex;
+    justify-content: center;
+    gap: 2px;
+}
+
+/* Hide the native radio circle, but keep it accessible */
+.radio-toggle input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+/* Each label becomes a "button" */
+.radio-toggle label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 18px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.radio-toggle label:hover {
+    color: var(--color-text);
+    background: rgba(var(--color-accent-rgb), 0.1);
+}
+
+/* The "active" pill — triggered purely by :checked */
+.radio-toggle input[type="radio"]:checked + label {
+    background: var(--color-accent);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(var(--color-accent-rgb), 0.35);
+}
+
+/* Focus ring for keyboard navigation */
+.radio-toggle input[type="radio"]:focus-visible + label {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* Disabled state */
+.radio-toggle input[type="radio"]:disabled + label {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.separator {
+    width: 1px;
+    height: 20px;
+    background: var(--color-border);
+}
+
+/* ── Gear / settings button ── */
+.settings-wrapper {
+    position: relative;
+}
+
+.settings-btn {
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 3px 7px;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s, border-color 0.15s;
+    line-height: 1;
+}
+
+.settings-btn:hover,
+.settings-btn[aria-expanded="true"] {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.settings-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.settings-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+
+/* ── Settings drop-down panel ── */
+.settings-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    min-width: 180px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    z-index: 150;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-panel .SubControllerContainer {
+    justify-content: space-between;
+    width: 100%;
+}
+
+.settings-panel .SubControllerContainer input,
+.settings-panel .SubControllerContainer select {
+    margin-left: auto;
+}
+
+.settings-panel.open {
+    display: flex;
+}
+
+.settings-panel-title {
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+/* ── Info icon & tooltip ── */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-text-secondary);
+    color: var(--color-bg);
+    font-size: 0.65rem;
+    font-style: italic;
+    font-weight: 700;
+    cursor: help;
+    flex-shrink: 0;
+    user-select: none;
+    position: relative;
+}
+
+.info-icon::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--color-header);
+    color: var(--color-tooltip-text);
+    font-size: 0.8rem;
+    font-style: normal;
+    font-weight: 400;
+    /* Reset the typography of whatever the icon sits in (the totals table
+       headers are uppercase and letter-spaced, for one). */
+    text-transform: none;
+    letter-spacing: normal;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Wide variant, for sentence-length text that would run off the viewport as
+   the single nowrap line of the default tooltip: breaks over several lines and
+   hangs below the icon instead of to its left.
+
+   The lines are the ones written into `data-tooltip`, and the box is sized to
+   the longest of them: a box left to wrap the text itself is as wide as the
+   width it wrapped against, however short the line that lands under it, which
+   leaves the text sitting in a box visibly wider than itself.  The max-width
+   only has to catch a line too long for the viewport, which then wraps as it
+   would have anyway. */
+.info-icon-wide::after {
+    right: auto;
+    left: 50%;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    white-space: pre-line;
+    width: max-content;
+    /* Never wider than the viewport it has to fit inside. */
+    max-width: min(280px, calc(100vw - 32px));
+    text-align: left;
+    line-height: 1.4;
+}
+
+.info-icon:hover::after,
+.info-icon:focus::after {
+    opacity: 1;
+}
+
+
+/* ── Data status ──
+   A single quiet line under the totals: how fresh the data is, or why there is
+   none to show. */
+.data-status {
+    margin: -12px auto 8px;
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
+    font-weight: 300;
+}
+
+.data-status:empty {
+    display: none;
+}
+
+/* ── Run outcome badge ──
+   An icon and a label beside the status color, so the outcome is never told by
+   color alone.  The status colors are fixed across both themes. */
+.outcome-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.outcome-badge::before {
+    content: attr(data-icon);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    background: var(--outcome-color);
+}
+
+.outcome-succeeded { --outcome-color: #0ca30c; }
+.outcome-failed { --outcome-color: #d03b3b; }
+.outcome-other { --outcome-color: #fab219; }
+.outcome-cancelled { --outcome-color: #898781; }
+
+/* The warning amber is too light to carry white text. */
+.outcome-other::before {
+    color: #1a1a2e;
+}
+
+/* ── Status grid legend ──
+   Drawn by the page rather than by Plotly, as labeled swatches above the grid,
+   so that every cell state is named and none is told by color alone. */
+.grid-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 18px;
+    margin: 12px auto 0;
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
+}
+
+.grid-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.grid-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid var(--color-border);
+}
+
+.plot-table td.cell-left,
+.plot-table th.cell-left {
+    text-align: left;
+}
+
+.cell-muted {
+    color: var(--color-text-secondary);
+}
+
+@media (max-width: 900px) {
+    .ControllerContainer:has(.settings-wrapper) {
+        padding-right: 48px;
+    }
+
+    .ControllerContainer .settings-wrapper {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+    }
+
+    /* The divider before the gear reads as a rule between rows once the bar
+       has wrapped and the gear has left the row, so it is dropped here. */
+    .ControllerContainer .separator {
+        display: none;
+    }
+}
+
+@media (max-width: 700px) {
+    /* Reclaim the page gutters for the controls, which are the widest thing
+       on the page once the plots have been sized against the viewport.  Set
+       as longhands so as to leave the right-hand padding reserved above for
+       the pinned icons alone. */
+    .page-content {
+        padding: 0 10px;
+    }
+
+    .ControllerContainer {
+        padding-top: 10px;
+        padding-bottom: 10px;
+        padding-left: 12px;
+    }
+}
+
+
+/* ── Site footer ── */
+/* The page-wide caveat, kept quiet at the foot of the page: smaller and
+   dimmer than the body text so it reads as a footnote to everything above it
+   rather than as another line of the last section. */
+.page-footnote {
+    max-width: 720px;
+    margin: 32px auto 0;
+    padding: 0 20px;
+    color: var(--color-text-secondary);
+    font-size: 0.8em;
+    font-weight: 300;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.site-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 12px 20px 20px;
+    margin-top: 24px;
+    border-top: 1px solid var(--color-border);
+}
+
+.site-version {
+    color: var(--color-text-secondary);
+    font-size: 0.8em;
+    font-family: monospace;
+    align-self: flex-end;
+}
+
+.con-brand {
+    display: flex;
+    align-items: center;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.con-brand:hover {
+    opacity: 1;
+}
+
+.con-logo {
+    height: 64px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+
+[data-theme="light"] .con-logo {
+    filter: none;
+}
